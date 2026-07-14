@@ -1,0 +1,12 @@
+[
+  {
+    "id": "greeting-001",
+    "name": "Basic greeting",
+    "category": "general",
+    "prompt": "Say hello in one short sentence.",
+    "assertion": {
+      "type": "contains",
+      "expected": "hello"
+    }
+  }
+]

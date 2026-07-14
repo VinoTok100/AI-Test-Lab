@@ -24,9 +24,9 @@ class TestRunner:
     """Coordinates model execution and response evaluation."""
 
     def __init__(
-        self,
-        client: ModelClient,
-        evaluator: Evaluator,
+            self,
+            client: ModelClient,
+            evaluator: Evaluator,
     ) -> None:
         self._client = client
         self._evaluator = evaluator

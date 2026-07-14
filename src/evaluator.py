@@ -1,8 +1,8 @@
 from src.models import (
     Assertion,
     AssertionType,
+    EvaluationStatus,
     EvaluationResult,
-    TestStatus,
 )
 
 
@@ -27,7 +27,8 @@ def evaluate_response(
 
     return EvaluationResult(
         passed=passed,
-        status=TestStatus.PASS if passed else TestStatus.FAIL,
+        #status=EvaluationResult.PASS if passed else EvaluationResult.FAIL,
+        status=EvaluationStatus.PASS if passed else EvaluationStatus.FAIL,
         assertion_type=assertion.type,
         expected=assertion.expected,
         reason="Evaluation completed.",

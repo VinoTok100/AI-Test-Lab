@@ -1,7 +1,7 @@
 
 
 from src.evaluator import evaluate_response
-from src.models import Assertion, TestStatus
+from src.models import Assertion, EvaluationStatus
 
 
 def test_contains_passes():
@@ -16,7 +16,7 @@ def test_contains_passes():
     )
 
     assert result.passed is True
-    assert result.status == TestStatus.PASS
+    assert result.status == EvaluationStatus.PASS
 
 
 def test_contains_fails():
@@ -31,4 +31,4 @@ def test_contains_fails():
     )
 
     assert result.passed is False
-    assert result.status == TestStatus.FAIL
+    assert result.status == EvaluationStatus.FAIL

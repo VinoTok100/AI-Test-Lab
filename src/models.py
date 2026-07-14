@@ -12,7 +12,7 @@ class AssertionType(StrEnum):
     EQUALS = "equals"
 
 
-class TestStatus(StrEnum):
+class EvaluationStatus(StrEnum):
     """Possible outcomes of an AI test."""
 
     PASS = "PASS"
@@ -51,7 +51,7 @@ class EvaluationResult(BaseModel):
     """Represents the result of evaluating an AI response."""
 
     passed: bool
-    status: TestStatus
+    status: EvaluationStatus
     assertion_type: AssertionType
     expected: str
     reason: str
@@ -68,7 +68,7 @@ class TestResult(BaseModel):
     model: str
     actual_response: str
 
-    status: TestStatus
+    status: EvaluationStatus
     passed: bool
     assertion_type: AssertionType
     expected: str

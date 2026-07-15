@@ -8,7 +8,7 @@ from src.models import (
     ModelResponse,
     PromptTest,
 )
-from src.test_runner import TestRunner as Runner
+from src.runner import TestRunner as Runner
 
 
 def test_runner_executes_prompt_and_returns_test_result():

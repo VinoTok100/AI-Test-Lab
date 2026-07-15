@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import argparse
-
+from src.prompt_loader import load_prompt_tests
+from src.ollama_client import OllamaClient
 from src.models import EvaluationStatus
 from src.ollama_client import OllamaClient
 from src.prompt_loader import load_prompt_tests
-from src.test_runner import TestRunner
+from src.runner import TestRunner
 from src.evaluator import evaluate_response
 #--------------------------------
 def parse_args():
@@ -32,9 +33,9 @@ def main() -> int:
     tests = load_prompt_tests(args.prompts)
 
     client = OllamaClient(model=args.model)
+
     runner = TestRunner(client, evaluate_response)
 
-    #runner = TestRunner(client)
 
     results = runner.run_tests(tests)
 
@@ -43,7 +44,6 @@ def main() -> int:
     errors = 0
 
     print("\n========== RESULTS ==========\n")
-    #print(f"results[0].model_dump() ==> {results[0].model_dump()}")
 
     for result in results:
         print(

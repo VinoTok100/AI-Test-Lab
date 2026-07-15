@@ -1,0 +1,16 @@
+{
+  "summary": {
+    "passed": 1,
+    "failed": 0,
+    "errors": 0,
+    "total": 1
+  },
+  "results": [
+    {
+      "test_id": "greeting-001",
+      "status": "PASS",
+      "response": "Hello!",
+      "message": "Evaluation completed."
+    }
+  ]
+}

@@ -1,30 +1,49 @@
-# prompt_loader.py – Line-by-Line Explanation
+# `prompt_loader.py`
 
-## Purpose of this file
+## Purpose
 
-`prompt_loader.py` is responsible for loading AI test cases from a JSON file, validating them using Pydantic, and returning them as a list of `PromptTest` objects.
+The `prompt_loader.py` module is responsible for loading AI prompt test definitions from a JSON file, validating them with **Pydantic**, and converting them into strongly typed `PromptTest` objects.
 
-Without this file, the AI Test Lab would have no way to read prompt definitions from disk before executing the tests.
+It acts as the **input layer** of the AI Test Lab. Instead of working directly with raw JSON dictionaries, the rest of the framework receives validated Python objects that are guaranteed to follow the expected schema.
+
+Without this module, the AI Test Runner would have no reliable way to load or validate test cases before execution.
 
 ---
 
-## Source Code
+# Dependencies
+
+```python
+import json
+from pathlib import Path
+
+from src.models import PromptTest
+```
+
+| Module | Purpose |
+|---------|----------|
+| `json` | Reads JSON files and converts JSON text into Python objects. |
+| `Path` | Provides a modern, object-oriented interface for working with files and directories. |
+| `PromptTest` | Validates each JSON test case and converts it into a strongly typed Pydantic model. |
+
+---
+
+# Source Code
 
 ```python
 import json
 ```
 
-### Explanation
+## Explanation
 
 Imports Python's built-in **json** module.
 
-The `json` module is used to:
+The JSON module allows Python to exchange data using JavaScript Object Notation (JSON), one of the most common formats for configuration files and APIs.
 
-* Read JSON files.
-* Convert JSON text into Python objects.
-* Convert Python objects back into JSON.
+In AI Test Lab, prompt definitions are stored in a JSON file. This module converts that JSON into Python objects.
 
-In this file it is used to read the prompt definition file.
+### Why it is needed
+
+Without the `json` module, Python would treat the file as plain text and could not interpret its structure.
 
 ---
 
@@ -32,11 +51,11 @@ In this file it is used to read the prompt definition file.
 from pathlib import Path
 ```
 
-### Explanation
+## Explanation
 
-Imports the `Path` class from Python's **pathlib** module.
+Imports the `Path` class from Python's `pathlib` module.
 
-`Path` provides an object-oriented way to work with files and directories.
+`Path` provides an object-oriented approach to handling file system paths.
 
 Instead of writing:
 
@@ -44,22 +63,30 @@ Instead of writing:
 open("prompts/prompts.json")
 ```
 
-you can write:
+the code creates a `Path` object:
 
 ```python
 Path("prompts/prompts.json")
 ```
 
-Benefits include:
+which exposes many useful methods.
 
-* Works on Windows, Linux, and macOS.
-* Easier to read.
-* Provides many helpful methods such as:
+Common examples include:
 
-  * `exists()`
-  * `open()`
-  * `mkdir()`
-  * `parent`
+- `exists()`
+- `open()`
+- `mkdir()`
+- `parent`
+- `suffix`
+
+### Why it is used
+
+Using `Path` makes the code:
+
+- easier to read,
+- cross-platform,
+- less error-prone,
+- more maintainable.
 
 ---
 
@@ -67,11 +94,11 @@ Benefits include:
 from src.models import PromptTest
 ```
 
-### Explanation
+## Explanation
 
-Imports the **PromptTest** Pydantic model.
+Imports the `PromptTest` Pydantic model.
 
-Each object in the JSON file will become one `PromptTest`.
+Every JSON object describing a prompt test is converted into one instance of `PromptTest`.
 
 Example JSON:
 
@@ -79,7 +106,7 @@ Example JSON:
 {
     "id": "greeting-001",
     "prompt": "Say hello",
-    "assertions": [...]
+    "assertions": []
 }
 ```
 
@@ -89,14 +116,17 @@ becomes
 PromptTest(...)
 ```
 
-instead of a plain dictionary.
+instead of remaining a plain Python dictionary.
 
-Using a model provides:
+### Why it is used
 
-* type checking
-* validation
-* autocompletion
-* safer code
+Using a Pydantic model provides:
+
+- automatic validation,
+- type safety,
+- autocompletion,
+- cleaner code,
+- immediate detection of invalid test definitions.
 
 ---
 
@@ -104,27 +134,19 @@ Using a model provides:
 def load_prompt_tests(file_path: str | Path) -> list[PromptTest]:
 ```
 
-### Explanation
+# Function Overview
 
-Defines the function that loads prompt tests.
+This function loads a JSON file containing prompt test definitions, validates every test case, and returns a list of `PromptTest` objects.
 
-Function name:
+---
 
-```python
-load_prompt_tests
-```
-
-Meaning:
-
-> Load prompt tests from a file.
-
-### Parameter
+## Parameters
 
 ```python
 file_path
 ```
 
-The location of the JSON file.
+Specifies the location of the JSON file.
 
 The type hint
 
@@ -132,7 +154,7 @@ The type hint
 str | Path
 ```
 
-means the function accepts either:
+means the caller may provide either:
 
 ```python
 "prompts/prompts.json"
@@ -144,13 +166,17 @@ or
 Path("prompts/prompts.json")
 ```
 
-### Return type
+Both are accepted.
+
+---
+
+## Return Type
 
 ```python
 list[PromptTest]
 ```
 
-The function returns a list of `PromptTest` objects.
+Returns a list of validated prompt test objects.
 
 Example:
 
@@ -168,23 +194,29 @@ Example:
 path = Path(file_path)
 ```
 
-### Explanation
+## Explanation
 
-Converts the input into a `Path` object.
+Converts the incoming argument into a `Path` object.
 
-Even if the caller passes a string,
+Even if the caller passes a string, the code immediately converts it into a `Path`.
+
+Example:
+
+Input:
 
 ```python
 "prompts/prompts.json"
 ```
 
-it becomes
+becomes
 
 ```python
 Path("prompts/prompts.json")
 ```
 
-Now the code can use all `Path` methods.
+### Why this is useful
+
+From this point onward, the function can use all of `Path`'s methods regardless of how the caller supplied the file name.
 
 ---
 
@@ -192,27 +224,25 @@ Now the code can use all `Path` methods.
 if not path.exists():
 ```
 
-### Explanation
+## Explanation
 
-Checks whether the file actually exists.
+Checks whether the specified file exists.
 
-If the file does not exist:
-
-```python
-False
-```
-
-the program enters the `if` block.
+If the file cannot be found, the condition evaluates to `True`.
 
 Example:
 
-```python
+```
 prompts/prompts.json
 ```
 
 Missing?
 
-Then this condition becomes true.
+Then execution enters the `if` block.
+
+### Why this check matters
+
+Failing early produces a clear and meaningful error instead of allowing the program to fail later while attempting to open a nonexistent file.
 
 ---
 
@@ -222,19 +252,23 @@ raise FileNotFoundError(
 )
 ```
 
-### Explanation
+## Explanation
 
-Stops the program immediately by raising an exception.
+Raises a `FileNotFoundError`.
 
 Example output:
 
-```
+```text
 FileNotFoundError:
 Prompt file not found:
 prompts/prompts.json
 ```
 
-This prevents confusing errors later when trying to open a file that does not exist.
+### Why this is important
+
+This immediately informs the user exactly what went wrong and which file is missing.
+
+Without this explicit exception, debugging would be more difficult.
 
 ---
 
@@ -242,27 +276,29 @@ This prevents confusing errors later when trying to open a file that does not ex
 with path.open("r", encoding="utf-8") as file:
 ```
 
-### Explanation
+## Explanation
 
-Opens the JSON file.
+Opens the JSON file for reading.
 
 Breaking it down:
 
-`"r"`
+```python
+"r"
+```
 
-means:
+means
 
-> Open for reading.
+> Open the file in read-only mode.
 
-`encoding="utf-8"`
+```python
+encoding="utf-8"
+```
 
-tells Python how to decode the text.
+specifies UTF-8 text encoding, the standard encoding used by JSON.
 
-UTF-8 supports virtually every language and is the standard encoding for JSON.
+The `with` statement automatically closes the file after reading, even if an exception occurs.
 
-The `with` statement is important because it automatically closes the file when finished, even if an error occurs.
-
-Equivalent (but not recommended):
+Equivalent (but discouraged):
 
 ```python
 file = open(...)
@@ -272,45 +308,47 @@ file = open(...)
 file.close()
 ```
 
+### Why use `with`
+
+Using a context manager prevents resource leaks and guarantees proper cleanup.
+
 ---
 
 ```python
 raw_data = json.load(file)
 ```
 
-### Explanation
+## Explanation
 
-Reads the entire JSON file and converts it into Python objects.
+Reads the entire JSON document and converts it into Python objects.
 
-Suppose the JSON contains:
+Example JSON:
 
 ```json
 [
-  {
-    "id":"1",
-    "prompt":"Hello"
-  }
-]
-```
-
-After loading:
-
-```python
-raw_data
-```
-
-contains
-
-```python
-[
     {
-        "id":"1",
-        "prompt":"Hello"
+        "id": "1",
+        "prompt": "Hello"
     }
 ]
 ```
 
-Notice these are still dictionaries, **not** `PromptTest` objects.
+becomes
+
+```python
+[
+    {
+        "id": "1",
+        "prompt": "Hello"
+    }
+]
+```
+
+At this point the elements are ordinary Python dictionaries.
+
+### Why this step is necessary
+
+Python cannot validate or manipulate JSON until it has first been converted into native Python objects.
 
 ---
 
@@ -321,11 +359,11 @@ return [
 ]
 ```
 
-### Explanation
+## Explanation
 
 This is a **list comprehension**.
 
-It loops through every dictionary in `raw_data`.
+The code iterates over every dictionary stored in `raw_data`.
 
 For each dictionary:
 
@@ -341,17 +379,17 @@ PromptTest.model_validate(item)
 
 `model_validate()` is a Pydantic method that:
 
-* checks every required field
-* validates the data types
-* creates a real `PromptTest` object
-* raises a `ValidationError` if the data is invalid
+- validates required fields,
+- verifies data types,
+- creates a `PromptTest` instance,
+- raises a `ValidationError` if the data is invalid.
 
-For example:
+Example:
 
 ```python
 {
-    "id":"1",
-    "prompt":"Hello"
+    "id": "1",
+    "prompt": "Hello"
 }
 ```
 
@@ -364,51 +402,91 @@ PromptTest(
 )
 ```
 
-Finally, the function returns a list of validated `PromptTest` objects ready for the AI Test Runner.
+### Why validation matters
+
+This guarantees that every prompt entering the AI Test Runner follows the expected schema.
+
+If even one prompt contains invalid data, the error is detected immediately rather than during test execution.
 
 ---
 
 # Execution Flow
 
 ```text
-JSON file
-      │
-      ▼
-Path(file_path)
-      │
-      ▼
-Does file exist?
-      │
-      ├── No → FileNotFoundError
-      │
-      ▼ Yes
-Open file
-      │
-      ▼
-json.load()
-      │
-      ▼
-Python dictionaries
-      │
-      ▼
+JSON Prompt File
+        │
+        ▼
+Convert to Path object
+        │
+        ▼
+Does the file exist?
+        │
+   ┌────┴────┐
+   │         │
+ No         Yes
+   │         │
+   ▼         ▼
+Raise      Open file
+FileNotFoundError
+             │
+             ▼
+        json.load()
+             │
+             ▼
+    Python dictionaries
+             │
+             ▼
 PromptTest.model_validate()
+             │
+             ▼
+Validated PromptTest objects
+             │
+             ▼
+Return list[PromptTest]
+```
+
+---
+
+# How It Fits into AI Test Lab
+
+```text
+prompts.json
+      │
+      ▼
+prompt_loader.py
       │
       ▼
 PromptTest objects
       │
       ▼
-Return list[PromptTest]
+TestRunner
+      │
+      ▼
+OllamaClient
+      │
+      ▼
+Evaluator
+      │
+      ▼
+JsonReporter
 ```
+
+The loader serves as the entry point for test definitions. It ensures that only valid prompt specifications continue through the AI testing pipeline.
+
+---
+
+# Key Takeaways
+
+- `prompt_loader.py` is responsible for loading prompt definitions from disk.
+- It accepts either a string path or a `Path` object.
+- It verifies that the prompt file exists before attempting to read it.
+- It parses JSON into Python dictionaries using the built-in `json` module.
+- It validates each dictionary with the `PromptTest` Pydantic model.
+- Invalid prompt definitions are rejected immediately through Pydantic validation.
+- The module returns a list of strongly typed `PromptTest` objects, allowing the rest of the AI Test Lab to operate without handling raw JSON or performing additional validation.
+
+---
 
 # Summary
 
-`prompt_loader.py` acts as the **data loading layer** of the AI Test Lab. Its responsibilities are to:
-
-1. Receive the path to a prompt definition file.
-2. Verify that the file exists.
-3. Open the JSON file safely.
-4. Parse the JSON into Python dictionaries.
-5. Validate each dictionary with the `PromptTest` Pydantic model.
-6. Return a list of validated `PromptTest` objects that the test runner can execute.
-
-This separation of responsibilities keeps the rest of the framework simple: other modules can assume they always receive valid `PromptTest` objects instead of dealing with raw JSON.
+`prompt_loader.py` is the **data ingestion and validation layer** of the AI Test Lab. Its primary responsibility is to transform external JSON prompt definitions into validated `PromptTest` objects that the rest of the framework can safely consume. By separating file handling and validation from the execution logic, the module improves reliability, maintainability, and readability across the entire testing framework.

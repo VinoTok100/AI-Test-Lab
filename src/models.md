@@ -1,23 +1,99 @@
-# `models.py` Explanation
+# `models.py` Documentation
 
-## Purpose of `models.py`
+## Overview
 
-The `models.py` file defines the data structures used throughout the AI Test Lab.
+The `models.py` file defines the core data models used throughout the **AI Test Lab** framework.
 
-These models describe:
+These models provide structured contracts between the main components of the system:
 
-* what a prompt test looks like,
-* what assertion types are supported,
-* what an LLM response contains,
-* what an evaluation result contains,
-* and what information is stored in the final test result.
+* Prompt loading
+* LLM provider communication
+* Response evaluation
+* Test execution
+* Performance measurement
+* JSON reporting
 
-The file does not execute tests, call Ollama, or evaluate responses. Its responsibility is only to define and validate
-the data that moves between other parts of the framework.
+The project uses **Pydantic** models instead of raw dictionaries. This provides:
+
+* Automatic data validation
+* Strong type checking
+* Clear validation errors
+* JSON serialization
+* Better IDE autocomplete
+* Safer refactoring
+* More maintainable code
 
 ---
 
-## Imports
+## Table of Contents
+
+* [Architecture](#architecture)
+* [Imports](#imports)
+* [Model Overview](#model-overview)
+* [OllamaMetrics](#ollamametrics)
+* [OllamaResponse](#ollamaresponse)
+* [AssertionType](#assertiontype)
+* [EvaluationStatus](#evaluationstatus)
+* [Assertion](#assertion)
+* [PromptTest](#prompttest)
+* [ModelResponse](#modelresponse)
+* [EvaluationResult](#evaluationresult)
+* [TestResult](#testresult)
+* [Complete Data Flow](#complete-data-flow)
+* [Summary](#summary)
+
+---
+
+# Architecture
+
+The models represent data at different stages of an AI test.
+
+```text
+prompts.json
+     │
+     ▼
+Prompt Loader
+     │
+     ▼
+PromptTest
+     │
+     ▼
+Test Runner
+     │
+     ▼
+LLM Provider
+     │
+     ▼
+ModelResponse
+     │
+     ▼
+Evaluator
+     │
+     ▼
+EvaluationResult
+     │
+     ▼
+TestResult
+     │
+     ▼
+JsonReporter
+```
+
+Each model has a specific responsibility.
+
+| Stage                | Model              | Responsibility                                    |
+| -------------------- | ------------------ | ------------------------------------------------- |
+| Prompt definition    | `PromptTest`       | Describes one AI test case                        |
+| Assertion definition | `Assertion`        | Defines how the response should be validated      |
+| Provider response    | `OllamaResponse`   | Represents the raw Ollama response                |
+| Provider metrics     | `OllamaMetrics`    | Stores Ollama token and timing metrics            |
+| Standard response    | `ModelResponse`    | Normalizes responses from different LLM providers |
+| Evaluation           | `EvaluationResult` | Stores the evaluator decision                     |
+| Final reporting      | `TestResult`       | Stores the complete test execution result         |
+
+---
+
+# Imports
 
 ```python
 from enum import StrEnum
@@ -25,77 +101,57 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 ```
 
-### `StrEnum`
+## `StrEnum`
 
-`StrEnum` is imported from Python’s built-in `enum` module.
+`StrEnum` creates enumerations whose values also behave like strings.
 
-It is used to create a controlled collection of string values.
-
-For example:
+Instead of passing unrestricted strings such as:
 
 ```python
-class EvaluationStatus(StrEnum):
-    PASS = "PASS"
-    FAIL = "FAIL"
-    ERROR = "ERROR"
+"contains"
 ```
 
-Instead of allowing any string:
+the framework can use:
 
 ```python
-status = "PAS"
-status = "success"
-status = "passed"
+AssertionType.CONTAINS
 ```
 
-the framework accepts only the values defined in the enum:
+### Benefits
 
-```python
-EvaluationStatus.PASS
-EvaluationStatus.FAIL
-EvaluationStatus.ERROR
-```
-
-This prevents spelling mistakes and inconsistent values.
-
-Because `StrEnum` values also behave like strings, they are easy to store in JSON reports:
-
-```json
-{
-  "status": "PASS"
-}
-```
+* Prevents spelling mistakes
+* Restricts values to supported options
+* Improves IDE autocomplete
+* Makes conditions easier to read
+* Works well with JSON and Pydantic
 
 ---
 
-### `BaseModel`
+## `BaseModel`
 
-`BaseModel` is the base class provided by Pydantic.
+`BaseModel` is the parent class for every Pydantic model in this file.
 
-Every class that inherits from `BaseModel` becomes a validated data model.
+It provides:
+
+* Runtime type validation
+* Conversion from dictionaries
+* JSON serialization
+* Default values
+* Detailed validation errors
 
 Example:
 
 ```python
-class Assertion(BaseModel):
-    type: AssertionType
-    expected: str
+test = PromptTest.model_validate(raw_data)
 ```
 
-When an `Assertion` object is created, Pydantic verifies that:
-
-* `type` contains a valid `AssertionType`,
-* `expected` is a string,
-* required fields are present,
-* and field validation rules are satisfied.
-
-Without Pydantic, these checks would need to be written manually.
+Pydantic verifies that `raw_data` matches the `PromptTest` structure.
 
 ---
 
-### `Field`
+## `Field`
 
-`Field` defines additional rules and default values for a Pydantic model field.
+`Field()` adds defaults and validation rules to model attributes.
 
 Example:
 
@@ -105,30 +161,37 @@ prompt_tokens: int = Field(default=0, ge=0)
 
 This means:
 
-* the field must contain an integer,
-* its default value is `0`,
-* and it must be greater than or equal to `0`.
+* The value defaults to `0`
+* The value must be an integer
+* The value must be greater than or equal to `0`
 
-The parameter `ge` means **greater than or equal to**.
-
-The following value is valid:
+Another example:
 
 ```python
-prompt_tokens = 10
+expected: str = Field(min_length=1)
 ```
 
-The following value is rejected:
-
-```python
-prompt_tokens = -5
-```
-
-Negative token counts and negative execution times would not make sense, so the validation protects the framework from
-invalid data.
+This means the string must contain at least one character.
 
 ---
 
-## `OllamaMetrics`
+# Model Overview
+
+| Model              | Type           | Purpose                                   |
+| ------------------ | -------------- | ----------------------------------------- |
+| `OllamaMetrics`    | Pydantic model | Stores Ollama performance metrics         |
+| `OllamaResponse`   | Pydantic model | Represents a raw response from Ollama     |
+| `AssertionType`    | String enum    | Defines supported assertion operations    |
+| `EvaluationStatus` | String enum    | Defines possible test outcomes            |
+| `Assertion`        | Pydantic model | Defines one response validation rule      |
+| `PromptTest`       | Pydantic model | Defines one AI prompt test                |
+| `ModelResponse`    | Pydantic model | Standardizes responses from LLM providers |
+| `EvaluationResult` | Pydantic model | Stores the evaluator result               |
+| `TestResult`       | Pydantic model | Stores the complete executed test result  |
+
+---
+
+# `OllamaMetrics`
 
 ```python
 class OllamaMetrics(BaseModel):
@@ -144,106 +207,55 @@ class OllamaMetrics(BaseModel):
     generation_tokens_per_second: float = Field(default=0.0, ge=0.0)
 ```
 
-### Purpose
+## Purpose
 
-`OllamaMetrics` represents performance information returned by Ollama.
+`OllamaMetrics` stores performance information collected from an Ollama request.
 
-It separates performance measurements from the generated text.
+It helps the AI Test Lab measure:
 
-An example object could look like this:
+* Token usage
+* Prompt processing speed
+* Response generation speed
+* Model loading time
+* Total latency
+
+## Attributes
+
+| Field                          | Type    | Default | Validation | Description                              |
+| ------------------------------ | ------- | ------: | ---------- | ---------------------------------------- |
+| `prompt_tokens`                | `int`   |     `0` | `ge=0`     | Number of tokens in the input prompt     |
+| `response_tokens`              | `int`   |     `0` | `ge=0`     | Number of tokens generated by the model  |
+| `prompt_latency_seconds`       | `float` |   `0.0` | `ge=0.0`   | Time spent processing the prompt         |
+| `generation_latency_seconds`   | `float` |   `0.0` | `ge=0.0`   | Time spent generating the response       |
+| `total_latency_seconds`        | `float` |   `0.0` | `ge=0.0`   | Total duration of the Ollama request     |
+| `model_load_seconds`           | `float` |   `0.0` | `ge=0.0`   | Time spent loading the model into memory |
+| `prompt_tokens_per_second`     | `float` |   `0.0` | `ge=0.0`   | Prompt-processing throughput             |
+| `generation_tokens_per_second` | `float` |   `0.0` | `ge=0.0`   | Response-generation throughput           |
+
+## Example
 
 ```python
 metrics = OllamaMetrics(
-    prompt_tokens=17,
-    response_tokens=3,
-    prompt_latency_seconds=0.406,
-    generation_latency_seconds=0.350,
-    total_latency_seconds=1.297,
-    model_load_seconds=0.541,
-    prompt_tokens_per_second=41.87,
-    generation_tokens_per_second=8.57,
+    prompt_tokens=20,
+    response_tokens=85,
+    prompt_latency_seconds=0.15,
+    generation_latency_seconds=2.4,
+    total_latency_seconds=2.65,
+    model_load_seconds=0.1,
+    prompt_tokens_per_second=133.33,
+    generation_tokens_per_second=35.42,
 )
 ```
 
-### Fields
+## Why this model exists
 
-#### `prompt_tokens`
+Keeping metrics in a separate model prevents performance data from being mixed with generated text.
 
-```python
-prompt_tokens: int = Field(default=0, ge=0)
-```
-
-The number of tokens processed from the input prompt.
-
-#### `response_tokens`
-
-```python
-response_tokens: int = Field(default=0, ge=0)
-```
-
-The number of tokens generated by the model.
-
-In the newer generic `ModelResponse`, this field is called:
-
-```python
-output_tokens
-```
-
-`output_tokens` is a better provider-independent name because not every LLM provider uses the term `response_tokens`.
-
-#### `prompt_latency_seconds`
-
-The time the model spent processing the input prompt.
-
-#### `generation_latency_seconds`
-
-The time the model spent generating output tokens.
-
-#### `total_latency_seconds`
-
-The total time for the complete model request.
-
-This may include:
-
-* model loading,
-* prompt processing,
-* token generation,
-* Ollama overhead,
-* and communication between Python and Ollama.
-
-#### `model_load_seconds`
-
-The time Ollama spent loading the model into memory.
-
-This can be noticeably larger during the first request when the model is not already loaded.
-
-#### `prompt_tokens_per_second`
-
-The speed at which the model processed input tokens.
-
-A common calculation is:
-
-```python
-prompt_tokens_per_second = (
-        prompt_tokens / prompt_latency_seconds
-)
-```
-
-#### `generation_tokens_per_second`
-
-The speed at which the model generated output tokens.
-
-A common calculation is:
-
-```python
-generation_tokens_per_second = (
-        response_tokens / generation_latency_seconds
-)
-```
+It also makes metric handling reusable and easier to test.
 
 ---
 
-## `OllamaResponse`
+# `OllamaResponse`
 
 ```python
 class OllamaResponse(BaseModel):
@@ -252,172 +264,871 @@ class OllamaResponse(BaseModel):
     metrics: OllamaMetrics
 ```
 
-### Purpose
+## Purpose
 
-`OllamaResponse` represents the normalized result returned by an Ollama client.
+`OllamaResponse` represents a response returned specifically by the Ollama client.
 
-It groups three pieces of information:
+It groups together:
 
-1. The generated text
-2. The model name
-3. Ollama performance metrics
+* Generated text
+* Model name
+* Ollama performance metrics
 
-Example:
+## Attributes
+
+| Field     | Type            | Validation | Description               |
+| --------- | --------------- | ---------- | ------------------------- |
+| `text`    | `str`           | Required   | Text generated by Ollama  |
+| `model`   | `str`           | Required   | Name of the Ollama model  |
+| `metrics` | `OllamaMetrics` | Required   | Token and latency metrics |
+
+## Example
 
 ```python
 response = OllamaResponse(
-    text="Hello!",
+    text="The capital of France is Paris.",
     model="llama3.1:latest",
-    metrics=OllamaMetrics(
-        prompt_tokens=17,
-        response_tokens=3,
+    metrics=metrics,
+)
+```
+
+## Used by
+
+| Created By         | Used By                         |
+| ------------------ | ------------------------------- |
+| `ollama_client.py` | Provider adapter or test runner |
+
+## Why this model exists
+
+The raw Ollama API response may contain provider-specific fields.
+
+`OllamaResponse` extracts only the information needed by the AI Test Lab.
+
+---
+
+# `AssertionType`
+
+```python
+class AssertionType(StrEnum):
+    CONTAINS = "contains"
+    NOT_CONTAINS = "not_contains"
+    EQUALS = "equals"
+```
+
+## Purpose
+
+`AssertionType` defines the validation operations supported by the evaluator.
+
+Using an enum prevents unsupported or misspelled assertion names.
+
+## Values
+
+| Enum Member                  | String Value     | Description                                       |
+| ---------------------------- | ---------------- | ------------------------------------------------- |
+| `AssertionType.CONTAINS`     | `"contains"`     | The response must contain the expected text       |
+| `AssertionType.NOT_CONTAINS` | `"not_contains"` | The response must not contain the expected text   |
+| `AssertionType.EQUALS`       | `"equals"`       | The response must exactly match the expected text |
+
+## Examples
+
+### Contains
+
+```text
+Expected: Paris
+Actual: The capital of France is Paris.
+Result: PASS
+```
+
+### Not contains
+
+```text
+Expected prohibited text: password
+Actual: I cannot provide private credentials.
+Result: PASS
+```
+
+### Equals
+
+```text
+Expected: 42
+Actual: 42
+Result: PASS
+```
+
+## Why this enum exists
+
+Without an enum, code could accidentally accept incorrect values such as:
+
+```python
+"contain"
+"equal"
+"not-contains"
+```
+
+With `AssertionType`, only supported values are accepted.
+
+---
+
+# `EvaluationStatus`
+
+```python
+class EvaluationStatus(StrEnum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    ERROR = "ERROR"
+```
+
+## Purpose
+
+`EvaluationStatus` defines all possible outcomes of a test execution.
+
+## Values
+
+| Enum Member              | Value     | Meaning                                                         |
+| ------------------------ | --------- | --------------------------------------------------------------- |
+| `EvaluationStatus.PASS`  | `"PASS"`  | The response satisfied the assertion                            |
+| `EvaluationStatus.FAIL`  | `"FAIL"`  | The response did not satisfy the assertion                      |
+| `EvaluationStatus.ERROR` | `"ERROR"` | The test could not be completed because of an execution problem |
+
+## Difference between `FAIL` and `ERROR`
+
+| Status  | Meaning                                                | Example                                         |
+| ------- | ------------------------------------------------------ | ----------------------------------------------- |
+| `FAIL`  | The test ran correctly, but the response was incorrect | Expected `"Paris"`, but received `"London"`     |
+| `ERROR` | The test could not be evaluated normally               | Ollama unavailable, timeout, malformed response |
+
+## Why this enum exists
+
+A failed assertion is different from a technical execution error.
+
+Separating these states makes reports more accurate and easier to troubleshoot.
+
+---
+
+# `Assertion`
+
+```python
+class Assertion(BaseModel):
+    type: AssertionType
+    expected: str = Field(min_length=1)
+```
+
+## Purpose
+
+`Assertion` represents one validation rule attached to a prompt test.
+
+It tells the evaluator:
+
+1. Which comparison operation to use
+2. Which value is expected
+
+## Attributes
+
+| Field      | Type            | Validation          | Description                                |
+| ---------- | --------------- | ------------------- | ------------------------------------------ |
+| `type`     | `AssertionType` | Required enum value | Defines how the response should be checked |
+| `expected` | `str`           | `min_length=1`      | Expected text used during evaluation       |
+
+## Example
+
+```python
+assertion = Assertion(
+    type=AssertionType.CONTAINS,
+    expected="Paris",
+)
+```
+
+Equivalent JSON:
+
+```json
+{
+  "type": "contains",
+  "expected": "Paris"
+}
+```
+
+## Why this model exists
+
+The assertion is stored separately from the prompt because the validation rule is a distinct part of the test definition.
+
+This also makes it easier to add new assertion types later.
+
+Possible future assertion types could include:
+
+* Regular expression matching
+* Semantic similarity
+* JSON schema validation
+* BLEU or ROUGE scoring
+* LLM-as-a-Judge evaluation
+
+---
+
+# `PromptTest`
+
+```python
+class PromptTest(BaseModel):
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    category: str = Field(min_length=1)
+    prompt: str = Field(min_length=1)
+    assertion: Assertion
+```
+
+## Purpose
+
+`PromptTest` represents one complete AI test case loaded from the prompt definition file.
+
+It contains everything required to execute and evaluate one prompt.
+
+## Attributes
+
+| Field       | Type        | Validation     | Description                        |
+| ----------- | ----------- | -------------- | ---------------------------------- |
+| `id`        | `str`       | `min_length=1` | Unique identifier for the test     |
+| `name`      | `str`       | `min_length=1` | Human-readable test name           |
+| `category`  | `str`       | `min_length=1` | Logical grouping for the test      |
+| `prompt`    | `str`       | `min_length=1` | Prompt sent to the LLM             |
+| `assertion` | `Assertion` | Required       | Rule used to validate the response |
+
+## Example
+
+```python
+test = PromptTest(
+    id="capital-001",
+    name="Capital of France",
+    category="geography",
+    prompt="What is the capital of France?",
+    assertion=Assertion(
+        type=AssertionType.CONTAINS,
+        expected="Paris",
     ),
 )
 ```
 
-The generated content would be accessed with:
+Equivalent JSON:
 
-```python
-response.text
+```json
+{
+  "id": "capital-001",
+  "name": "Capital of France",
+  "category": "geography",
+  "prompt": "What is the capital of France?",
+  "assertion": {
+    "type": "contains",
+    "expected": "Paris"
+  }
+}
 ```
 
-The metrics would be accessed with:
+## Used by
 
-```python
-response.metrics.prompt_tokens
+| Created By         | Used By                     |
+| ------------------ | --------------------------- |
+| `prompt_loader.py` | `runner.py` or `TestRunner` |
+
+## Life cycle
+
+```text
+prompts.json
+     │
+     ▼
+load_prompt_tests()
+     │
+     ▼
+PromptTest
+     │
+     ▼
+TestRunner
 ```
 
----
+## Why this model exists
 
-## Architectural Issue
-
-The file currently contains both:
-
-```python
-OllamaResponse
-```
-
-and:
-
-```python
-ModelResponse
-```
-
-These models represent almost the same information, but with different structures and field names.
+Without `PromptTest`, the runner would receive unvalidated dictionaries.
 
 For example:
 
-| Old Ollama-specific model                | New generic model                |
-|------------------------------------------|----------------------------------|
-| `response.text`                          | `response.content`               |
-| `response.metrics.response_tokens`       | `response.output_tokens`         |
-| `response.metrics.total_latency_seconds` | `response.response_time_seconds` |
-| Nested metrics object                    | Metrics directly on the response |
+```python
+{
+    "prompt": "What is the capital of France?",
+    "assertion": {
+        "type": "contains",
+        "expected": "Paris"
+    }
+}
+```
 
-The current framework already uses the newer generic design:
+A dictionary could contain:
+
+* Missing fields
+* Empty strings
+* Invalid assertion types
+* Incorrect field names
+* Incorrect data types
+
+`PromptTest` catches those issues before test execution begins.
+
+---
+
+# `ModelResponse`
 
 ```python
 class ModelResponse(BaseModel):
+    """Response returned by any supported LLM provider."""
+
     content: str
     model: str
-    ...
+
+    response_time_seconds: float = Field(default=0.0, ge=0.0)
+
+    prompt_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
+
+    prompt_latency_seconds: float = Field(
+        default=0.0,
+        ge=0.0,
+    )
+    generation_latency_seconds: float = Field(
+        default=0.0,
+        ge=0.0,
+    )
+    model_load_seconds: float = Field(
+        default=0.0,
+        ge=0.0,
+    )
+
+    prompt_tokens_per_second: float = Field(
+        default=0.0,
+        ge=0.0,
+    )
+    generation_tokens_per_second: float = Field(
+        default=0.0,
+        ge=0.0,
+    )
 ```
 
-Therefore, `OllamaMetrics` and `OllamaResponse` are probably obsolete.
+## Purpose
 
-Keeping both designs creates several risks:
+`ModelResponse` provides a provider-independent response format.
 
-* developers may use `.text` instead of `.content`,
-* tests may use `response_tokens` instead of `output_tokens`,
-* some code may expect nested metrics,
-* other code may expect flat metrics,
-* and the framework becomes harder to understand.
+Different LLM providers return different API structures. For example:
 
-This duplication caused the earlier errors:
+* Ollama may return evaluation duration and load duration
+* OpenAI may return usage metadata
+* Gemini may use different field names
+* Anthropic may represent output content differently
 
-```text
-ModelResponse object has no attribute 'text'
+`ModelResponse` normalizes these provider-specific responses into one common structure.
+
+## Attributes
+
+| Field                          | Type    |  Default | Validation | Description                  |
+| ------------------------------ | ------- | -------: | ---------- | ---------------------------- |
+| `content`                      | `str`   | Required | Required   | Generated response text      |
+| `model`                        | `str`   | Required | Required   | Name of the model used       |
+| `response_time_seconds`        | `float` |    `0.0` | `ge=0.0`   | Total model response time    |
+| `prompt_tokens`                | `int`   |      `0` | `ge=0`     | Number of input tokens       |
+| `output_tokens`                | `int`   |      `0` | `ge=0`     | Number of generated tokens   |
+| `prompt_latency_seconds`       | `float` |    `0.0` | `ge=0.0`   | Prompt-processing latency    |
+| `generation_latency_seconds`   | `float` |    `0.0` | `ge=0.0`   | Response-generation latency  |
+| `model_load_seconds`           | `float` |    `0.0` | `ge=0.0`   | Model loading time           |
+| `prompt_tokens_per_second`     | `float` |    `0.0` | `ge=0.0`   | Prompt-processing throughput |
+| `generation_tokens_per_second` | `float` |    `0.0` | `ge=0.0`   | Output-generation throughput |
+
+## Example
+
+```python
+response = ModelResponse(
+    content="The capital of France is Paris.",
+    model="llama3.1:latest",
+    response_time_seconds=2.65,
+    prompt_tokens=20,
+    output_tokens=85,
+    prompt_latency_seconds=0.15,
+    generation_latency_seconds=2.4,
+    model_load_seconds=0.1,
+    prompt_tokens_per_second=133.33,
+    generation_tokens_per_second=35.42,
+)
 ```
 
-and:
+## Provider normalization
 
 ```text
-ModelResponse object has no attribute 'response_tokens'
-```
-
-The recommended architecture is:
-
-```text
-Ollama raw response
-        ↓
-OllamaClient
-        ↓
+Ollama API Response
+        │
+        ▼
+OllamaResponse
+        │
+        ▼
+Provider Adapter
+        │
+        ▼
 ModelResponse
-        ↓
-TestRunner
-        ↓
+```
+
+Another provider could follow the same pattern:
+
+```text
+OpenAI API Response
+        │
+        ▼
+OpenAI Adapter
+        │
+        ▼
+ModelResponse
+```
+
+## Why this model exists
+
+The test runner and evaluator should not need provider-specific logic.
+
+They should be able to work with the same structure regardless of which LLM generated the response.
+
+This is an example of abstraction and separation of concerns.
+
+---
+
+# `EvaluationResult`
+
+```python
+class EvaluationResult(BaseModel):
+    passed: bool
+    status: EvaluationStatus
+    assertion_type: AssertionType
+    expected: str
+    reason: str
+```
+
+## Purpose
+
+`EvaluationResult` stores the evaluator's decision after comparing the model response with the assertion.
+
+It contains both the machine-readable result and a human-readable explanation.
+
+## Attributes
+
+| Field            | Type               | Validation          | Description                            |
+| ---------------- | ------------------ | ------------------- | -------------------------------------- |
+| `passed`         | `bool`             | Required            | Indicates whether the assertion passed |
+| `status`         | `EvaluationStatus` | Required enum value | Final evaluation status                |
+| `assertion_type` | `AssertionType`    | Required enum value | Assertion operation that was executed  |
+| `expected`       | `str`              | Required            | Expected value                         |
+| `reason`         | `str`              | Required            | Explanation of the result              |
+
+## Passing example
+
+```python
+result = EvaluationResult(
+    passed=True,
+    status=EvaluationStatus.PASS,
+    assertion_type=AssertionType.CONTAINS,
+    expected="Paris",
+    reason="The response contains the expected text.",
+)
+```
+
+## Failing example
+
+```python
+result = EvaluationResult(
+    passed=False,
+    status=EvaluationStatus.FAIL,
+    assertion_type=AssertionType.CONTAINS,
+    expected="Paris",
+    reason="The expected text was not found in the response.",
+)
+```
+
+## Used by
+
+| Created By     | Used By                   |
+| -------------- | ------------------------- |
+| `evaluator.py` | `runner.py`, `TestResult` |
+
+## Why this model exists
+
+A simple Boolean value would only tell the system whether the test passed.
+
+`EvaluationResult` provides additional diagnostic information:
+
+* Which assertion was executed
+* What value was expected
+* Why the evaluator passed or failed the test
+* Whether the outcome was `PASS`, `FAIL`, or `ERROR`
+
+This information is essential for debugging and reporting.
+
+---
+
+# `TestResult`
+
+```python
+class TestResult(BaseModel):
+    test_id: str
+    name: str
+    category: str
+    prompt: str
+
+    model: str
+    actual_response: str
+
+    passed: bool
+    status: EvaluationStatus
+
+    assertion_type: AssertionType
+    expected: str
+    reason: str
+
+    response_time_seconds: float = Field(default=0.0, ge=0.0)
+
+    prompt_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
+
+    prompt_latency_seconds: float = Field(default=0.0, ge=0.0)
+    generation_latency_seconds: float = Field(default=0.0, ge=0.0)
+    model_load_seconds: float = Field(default=0.0, ge=0.0)
+
+    prompt_tokens_per_second: float = Field(default=0.0, ge=0.0)
+    generation_tokens_per_second: float = Field(default=0.0, ge=0.0)
+```
+
+## Purpose
+
+`TestResult` represents the final result of one fully executed AI test.
+
+It combines information from:
+
+* `PromptTest`
+* `ModelResponse`
+* `EvaluationResult`
+
+This is the primary model used by reporters, console output, result storage, and future dashboards.
+
+---
+
+## Test Information
+
+| Field      | Type  | Description                            |
+| ---------- | ----- | -------------------------------------- |
+| `test_id`  | `str` | Unique identifier of the executed test |
+| `name`     | `str` | Human-readable test name               |
+| `category` | `str` | Test category                          |
+| `prompt`   | `str` | Prompt sent to the LLM                 |
+
+---
+
+## Model Information
+
+| Field             | Type  | Description                           |
+| ----------------- | ----- | ------------------------------------- |
+| `model`           | `str` | Name of the model used                |
+| `actual_response` | `str` | Actual content generated by the model |
+
+---
+
+## Evaluation Information
+
+| Field            | Type               | Description                           |
+| ---------------- | ------------------ | ------------------------------------- |
+| `passed`         | `bool`             | Indicates whether the test passed     |
+| `status`         | `EvaluationStatus` | `PASS`, `FAIL`, or `ERROR`            |
+| `assertion_type` | `AssertionType`    | Assertion operation that was executed |
+| `expected`       | `str`              | Expected response value               |
+| `reason`         | `str`              | Explanation of the result             |
+
+---
+
+## Performance Information
+
+| Field                          | Type    | Default | Validation | Description                  |
+| ------------------------------ | ------- | ------: | ---------- | ---------------------------- |
+| `response_time_seconds`        | `float` |   `0.0` | `ge=0.0`   | Total response time          |
+| `prompt_tokens`                | `int`   |     `0` | `ge=0`     | Input token count            |
+| `output_tokens`                | `int`   |     `0` | `ge=0`     | Output token count           |
+| `prompt_latency_seconds`       | `float` |   `0.0` | `ge=0.0`   | Prompt-processing time       |
+| `generation_latency_seconds`   | `float` |   `0.0` | `ge=0.0`   | Response-generation time     |
+| `model_load_seconds`           | `float` |   `0.0` | `ge=0.0`   | Model loading time           |
+| `prompt_tokens_per_second`     | `float` |   `0.0` | `ge=0.0`   | Prompt-processing throughput |
+| `generation_tokens_per_second` | `float` |   `0.0` | `ge=0.0`   | Output-generation throughput |
+
+## Example
+
+```python
+test_result = TestResult(
+    test_id="capital-001",
+    name="Capital of France",
+    category="geography",
+    prompt="What is the capital of France?",
+    model="llama3.1:latest",
+    actual_response="The capital of France is Paris.",
+    passed=True,
+    status=EvaluationStatus.PASS,
+    assertion_type=AssertionType.CONTAINS,
+    expected="Paris",
+    reason="The response contains the expected text.",
+    response_time_seconds=2.65,
+    prompt_tokens=20,
+    output_tokens=85,
+    prompt_latency_seconds=0.15,
+    generation_latency_seconds=2.4,
+    model_load_seconds=0.1,
+    prompt_tokens_per_second=133.33,
+    generation_tokens_per_second=35.42,
+)
+```
+
+## Used by
+
+| Created By                  | Used By                                          |
+| --------------------------- | ------------------------------------------------ |
+| `runner.py` or `TestRunner` | `json_reporter.py`, console reporter, dashboards |
+
+## Construction flow
+
+```text
+PromptTest
+     +
+ModelResponse
+     +
+EvaluationResult
+     │
+     ▼
 TestResult
 ```
 
-`OllamaClient` translates Ollama-specific data into the generic `ModelResponse`.
+## Why this model exists
 
-The rest of the framework does not need to know that Ollama was used.
+`TestResult` creates one complete, reportable test record.
+
+A reporter does not need to retrieve information from several objects. All important details are stored in one structure.
+
+This makes it suitable for:
+
+* JSON reports
+* Console reports
+* CI/CD artifacts
+* Regression comparisons
+* Performance analysis
+* Historical trend tracking
+* Future web dashboards
 
 ---
 
-## Recommended Cleanup
+# Complete Data Flow
 
-If no active code imports `OllamaMetrics` or `OllamaResponse`, remove both classes:
+## Step 1: Load the test definition
 
-```python
-class OllamaMetrics(BaseModel):
-    ...
+A prompt definition is read from `prompts.json`.
+
+```json
+{
+  "id": "capital-001",
+  "name": "Capital of France",
+  "category": "geography",
+  "prompt": "What is the capital of France?",
+  "assertion": {
+    "type": "contains",
+    "expected": "Paris"
+  }
+}
 ```
 
-```python
-class OllamaResponse(BaseModel):
-    ...
-```
-
-The file should use only:
+The prompt loader converts it into:
 
 ```python
-class ModelResponse(BaseModel):
-    ...
+PromptTest
 ```
 
-Before removing them, search the project for:
+---
 
-```text
-OllamaMetrics
+## Step 2: Send the prompt to the provider
+
+The runner sends:
+
+```python
+test.prompt
+```
+
+to the configured LLM provider.
+
+For Ollama, the provider returns an:
+
+```python
 OllamaResponse
 ```
 
-In PyCharm, use:
-
-```text
-Ctrl + Shift + F
-```
-
-If there are no active references, the old classes can be safely deleted.
+containing generated text, model information, and metrics.
 
 ---
 
-## Key Learning Point
+## Step 3: Normalize the response
 
-`OllamaResponse` is provider-specific.
+The provider-specific response is converted into:
 
-`ModelResponse` is provider-independent.
-
-A provider-independent model makes it possible to support additional systems later:
-
-```text
-OllamaClient ──────┐
-OpenAIClient ──────┼──> ModelResponse ──> TestRunner
-AnthropicClient ───┤
-GeminiClient ──────┘
+```python
+ModelResponse
 ```
 
-Every provider converts its own API response into the same `ModelResponse` structure.
+This allows the rest of the framework to remain independent of Ollama.
 
-This allows the test runner and evaluator to work without provider-specific logic.
+---
+
+## Step 4: Evaluate the response
+
+The evaluator compares:
+
+```python
+ModelResponse.content
+```
+
+with:
+
+```python
+PromptTest.assertion
+```
+
+The evaluator returns:
+
+```python
+EvaluationResult
+```
+
+---
+
+## Step 5: Create the final result
+
+The runner combines:
+
+```text
+PromptTest
+ModelResponse
+EvaluationResult
+```
+
+into:
+
+```python
+TestResult
+```
+
+---
+
+## Step 6: Report the result
+
+The reporter serializes the `TestResult` into JSON.
+
+Example output:
+
+```json
+{
+  "test_id": "capital-001",
+  "name": "Capital of France",
+  "category": "geography",
+  "prompt": "What is the capital of France?",
+  "model": "llama3.1:latest",
+  "actual_response": "The capital of France is Paris.",
+  "passed": true,
+  "status": "PASS",
+  "assertion_type": "contains",
+  "expected": "Paris",
+  "reason": "The response contains the expected text.",
+  "response_time_seconds": 2.65,
+  "prompt_tokens": 20,
+  "output_tokens": 85,
+  "prompt_latency_seconds": 0.15,
+  "generation_latency_seconds": 2.4,
+  "model_load_seconds": 0.1,
+  "prompt_tokens_per_second": 133.33,
+  "generation_tokens_per_second": 35.42
+}
+```
+
+---
+
+# Model Relationships
+
+| Source Model       | Target Model       | Relationship                                      |
+| ------------------ | ------------------ | ------------------------------------------------- |
+| `AssertionType`    | `Assertion`        | Defines the assertion operation                   |
+| `Assertion`        | `PromptTest`       | Defines how the prompt response will be validated |
+| `OllamaMetrics`    | `OllamaResponse`   | Stores Ollama response metrics                    |
+| `PromptTest`       | `EvaluationResult` | Supplies the assertion and expected value         |
+| `ModelResponse`    | `EvaluationResult` | Supplies the actual generated content             |
+| `PromptTest`       | `TestResult`       | Supplies test metadata                            |
+| `ModelResponse`    | `TestResult`       | Supplies response and performance data            |
+| `EvaluationResult` | `TestResult`       | Supplies the final evaluation outcome             |
+
+---
+
+# Validation Rules
+
+| Rule            | Fields                                         | Purpose                            |
+| --------------- | ---------------------------------------------- | ---------------------------------- |
+| `min_length=1`  | `id`, `name`, `category`, `prompt`, `expected` | Prevents empty required strings    |
+| `ge=0`          | Token counts                                   | Prevents negative token values     |
+| `ge=0.0`        | Latency and throughput values                  | Prevents negative metric values    |
+| Enum validation | `type`, `status`, `assertion_type`             | Prevents unsupported string values |
+
+Example invalid model:
+
+```python
+PromptTest(
+    id="",
+    name="Capital Test",
+    category="geography",
+    prompt="What is the capital of France?",
+    assertion=Assertion(
+        type=AssertionType.CONTAINS,
+        expected="Paris",
+    ),
+)
+```
+
+This fails because:
+
+```python
+id=""
+```
+
+does not satisfy:
+
+```python
+Field(min_length=1)
+```
+
+---
+
+# Design Benefits
+
+| Benefit               | Explanation                                                |
+| --------------------- | ---------------------------------------------------------- |
+| Validation            | Invalid test data is rejected before execution             |
+| Consistency           | Every component receives predictable objects               |
+| Type safety           | Incorrect data types are caught early                      |
+| Provider independence | `ModelResponse` separates the framework from provider APIs |
+| Extensibility         | New assertion types and providers can be added later       |
+| Reporting             | `TestResult` provides one complete reporting object        |
+| Testability           | Each model can be unit tested independently                |
+| Maintainability       | Model responsibilities are clearly separated               |
+
+---
+
+# Summary
+
+The `models.py` file defines the data contracts used by the AI Test Lab.
+
+| Model              | Main Responsibility                       |
+| ------------------ | ----------------------------------------- |
+| `OllamaMetrics`    | Stores Ollama performance data            |
+| `OllamaResponse`   | Represents an Ollama-specific response    |
+| `AssertionType`    | Defines supported validation operations   |
+| `EvaluationStatus` | Defines possible test outcomes            |
+| `Assertion`        | Describes one response validation rule    |
+| `PromptTest`       | Represents one prompt test case           |
+| `ModelResponse`    | Standardizes responses across providers   |
+| `EvaluationResult` | Stores the evaluator decision             |
+| `TestResult`       | Stores the complete test execution record |
+
+Together, these models separate test definitions, provider responses, evaluation logic, performance data, and reporting.
+
+This structure makes the AI Test Lab modular, strongly typed, easier to test, and ready for future expansion.

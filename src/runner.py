@@ -24,16 +24,16 @@ class TestRunner:
     """Coordinates model execution and response evaluation."""
 
     def __init__(
-            self,
-            client: ModelClient,
-            evaluator: Evaluator,
+        self,
+        client: ModelClient,
+        evaluator: Evaluator,
     ) -> None:
         self._client = client
         self._evaluator = evaluator
 
     def run_tests(
-            self,
-            test_cases: list[PromptTest],
+        self,
+        test_cases: list[PromptTest],
     ) -> list[TestResult]:
         return [
             self.run_test(test_case)
@@ -60,9 +60,26 @@ class TestRunner:
             assertion_type=evaluation.assertion_type,
             expected=evaluation.expected,
             reason=evaluation.reason,
+
             response_time_seconds=(
                 model_response.response_time_seconds
             ),
             prompt_tokens=model_response.prompt_tokens,
             output_tokens=model_response.output_tokens,
+
+            prompt_latency_seconds=(
+                model_response.prompt_latency_seconds
+            ),
+            generation_latency_seconds=(
+                model_response.generation_latency_seconds
+            ),
+            model_load_seconds=(
+                model_response.model_load_seconds
+            ),
+            prompt_tokens_per_second=(
+                model_response.prompt_tokens_per_second
+            ),
+            generation_tokens_per_second=(
+                model_response.generation_tokens_per_second
+            ),
         )

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from src.models import TestResult, EvaluationStatus #TestStatus
+from src.models import EvaluationStatus, TestResult
 
 
 class JsonReporter:
@@ -15,25 +15,15 @@ class JsonReporter:
 
         report = {
             "summary": {
-                "passed": self._count_status(results, EvaluationStatus.PASS),
-                "failed": self._count_status(results, EvaluationStatus.FAIL),
-                "errors": self._count_status(results, EvaluationStatus.ERROR),
+                "passed": sum(r.status == EvaluationStatus.PASS for r in results),
+                "failed": sum(r.status == EvaluationStatus.FAIL for r in results),
+                "errors": sum(r.status == EvaluationStatus.ERROR for r in results),
                 "total": len(results),
             },
-            "results": [
-                result.model_dump(mode="json")
-                for result in results
-            ],
+            "results": [r.model_dump(mode="json") for r in results],
         }
 
         self.report_path.write_text(
             json.dumps(report, indent=2),
             encoding="utf-8",
         )
-
-    @staticmethod
-    def _count_status(
-        results: list[TestResult],
-        status: EvaluationStatus,
-    ) -> int:
-        return sum(result.status == status for result in results)

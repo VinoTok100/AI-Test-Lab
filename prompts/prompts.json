@@ -2,11 +2,31 @@
   {
     "id": "greeting-001",
     "name": "Basic greeting",
-    "category": "general",
-    "prompt": "Say hello in one short sentence.",
+    "category": "functional",
+    "prompt": "Say hello",
     "assertion": {
       "type": "contains",
-      "expected": "hello"
+      "expected": "Hello"
+    }
+  },
+  {
+    "id": "python-001",
+    "name": "Python creator",
+    "category": "knowledge",
+    "prompt": "Who created Python?",
+    "assertion": {
+      "type": "contains",
+      "expected": "Guido van Rossum"
+    }
+  },
+  {
+    "id": "Florida State",
+    "name": "Basic history",
+    "category": "informational",
+    "prompt" : "What is the most annoing insects in florida? ",
+    "assertion": {
+      "type": "contains",
+      "expected" : " No-See-Ums "
     }
   }
 ]
